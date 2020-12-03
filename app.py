@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, url_for
 from flask_pymongo import PyMongo
 from flask_wtf import FlaskForm
+from pip._vendor import requests
 from wtforms import StringField, DecimalField, SelectField, DateField
 
 # By: Samantha Fernandez
-# Project: 3
+# Project: 4
 # Course: COP 4813
 
 app = Flask(__name__)
@@ -20,6 +21,11 @@ class Expenses(FlaskForm):
                   'Services', 'Medical', 'Legal']
     category = SelectField('Categories', choices=categories)
     description = StringField('Description')
+    currency = SelectField('Currency', choices=[('us', 'US Dollar'),
+                                                ('brazil', 'Brazilian Real'),
+                                                ('euro', 'Euro'),
+                                                ('colombian', 'Colombian Peso'),
+                                                ('cuban', 'Cuban Peso')])
     cost = DecimalField('Cost ($)')
     date = DateField('Date', format='%m/%d/%Y')
 
@@ -33,6 +39,21 @@ def get_total_expenses(category):
         expenses_total += float(i["cost"])
     return expenses_total
 
+def currency_converter(cost,currency):
+    url="http://api.currencylayer.com/live?access_key=12794a3fb5485f0a550bc92e13a4e2d5"
+    response = requests.get(url).json()
+    ### YOUR TASK IS TO COMPLETE THIS FUNCTION
+    if currency == 'us':
+        converted_cost = cost
+    elif currency == 'brazil':
+        converted_cost = cost / response["quotes"]["USDBRL"]
+    elif currency == 'euro':
+        converted_cost = cost / response["quotes"]["USDEUR"]
+    elif currency == 'colombian':
+        converted_cost = cost / response["quotes"]["USDCOP"]
+    elif currency == 'cuban':
+        converted_cost = cost / response["quotes"]["USDCUP"]
+    return converted_cost
 
 @app.route('/')
 def index():
@@ -66,13 +87,16 @@ def addExpenses():
         # CONTAINING THE DATA LOGGED BY THE USER
         description = request.form['description']
         category = request.form['category']
+        currency = request.form['currency']
         cost = request.form['cost']
         date = request.form['date']
+
+        #convert cost inputed using currency converter function
+        cost = currency_converter(float(cost), currency)
+
         # REMEMBER THAT IT SHOULD BE A PYTHON DICTIONARY
         document_data = {'description': description,
-                    'category': category,
-                    'cost': cost,
-                    'date': date}
+                         'category': category, 'cost': cost, 'date': date}
 
         mongo.db.expenses.insert_one(document_data)
         return render_template("expenseAdded.html")
